@@ -4,7 +4,7 @@ Welcome to the **HydRON Digital Twin (DT) Builder and GUI Monitor**, an interact
 
 Developed in Rust using the `egui` immediate-mode GUI framework, this project implements high-fidelity orbital mechanics, attitude control systems (ADCS), atmospheric attenuation models, and dynamic network routing simulation.
 
-🚀🎮 **Try the Live Web Demo**: [alcio313.github.io/hydronTwin](https://alcio313.github.io/hydronTwin/)
+🚀🎮 **Try the Live Web Demo**: [alcio313.github.io/ESA-HydRON-Simulator/](https://alcio313.github.io/ESA-HydRON-Simulator/)
 
 ---
 
