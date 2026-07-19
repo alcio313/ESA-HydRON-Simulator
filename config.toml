@@ -1,0 +1,104 @@
+# ESA HydRON Digital Twin Config file
+
+[constellation]
+name = "HydRON-Like-Net"
+
+[constellation.leo]
+num_satellites = 10
+altitude_km = 560.0
+inclination_deg = 97.6000
+mass_kg = 20.0
+cross_section_area_m2 = 0.1000
+cd = 2.20
+cr = 1.20
+
+[constellation.meo]
+num_satellites = 4
+altitude_km = 12500.0
+inclination_deg = 0.0000
+raans_deg = [0.0, 90.0, 180.0, 270.0]
+mass_kg = 50.0
+cross_section_area_m2 = 0.2500
+cd = 0.00
+cr = 1.20
+
+[constellation.geo]
+num_satellites = 0
+longitudes_deg = [0.0, 60.0, -120.0]
+altitude_km = 35786.0
+inclination_deg = 0.0000
+mass_kg = 200.0
+cross_section_area_m2 = 1.5000
+cd = 0.00
+cr = 1.20
+
+[ground]
+
+[[ground.stations]]
+id = "GS_SVA"
+name = "Svalbard"
+lat_deg = 78.2307
+lon_deg = 15.6472
+alt_m = 130.0
+downlink_nominal_gbps = "unlimited"
+
+[[ground.stations]]
+id = "GS_ZRH"
+name = "Zurich"
+lat_deg = 47.4647
+lon_deg = 8.5492
+alt_m = 400.0
+downlink_nominal_gbps = "unlimited"
+
+[[ground.stations]]
+id = "GS_REU"
+name = "Reunion"
+lat_deg = -20.9089
+lon_deg = 55.5136
+alt_m = 95.0
+downlink_nominal_gbps = "unlimited"
+
+[[ground.stations]]
+id = "GS_MAU"
+name = "Maui"
+lat_deg = 20.7067
+lon_deg = -156.2570
+alt_m = 100.0
+downlink_nominal_gbps = "unlimited"
+
+[atmosphere]
+states = ["clear", "thin", "thick", "heavy"]
+k_values_per_km = [0.05, 0.20, 1.50, 5.00]
+transition_matrix = [
+    [0.85, 0.10, 0.04, 0.01],
+    [0.15, 0.70, 0.10, 0.05],
+    [0.05, 0.15, 0.65, 0.15],
+    [0.02, 0.08, 0.20, 0.70],
+]
+
+[adcs]
+rw_max_torque_nm = 0.01
+rw_max_momentum_nms = 0.1
+mtq_max_dipole_am2 = 0.2
+
+[sensors]
+gyro_bias_rad_s = [1e-5, 1e-5, 1e-5]
+gyro_noise_rad_s = 1e-6
+mag_noise_tesla = 1e-8
+sun_noise_rad = 1e-3
+star_tracker_noise_rad = 1e-4
+
+[environment]
+mu = 3.9860044180e14
+r_earth = 6378137.0
+j2 = 1.0826266800e-3
+rho0_500km = 3.8000000000e-12
+h0_km = 500.0
+scale_height_km = 70.0
+p_srp = 4.5600000000e-6
+
+[digital_twin]
+time_step_s = 1.0
+sim_duration_s = 86400.0
+ref_distance_isl_km = 1000.0
+ref_distance_sgl_km = 1000.0

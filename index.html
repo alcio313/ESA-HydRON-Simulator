@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HydRON Constellation Digital Twin & GUI Monitor</title>
+    <meta name="description" content="Simulatore interattivo web per la costellazione satellitare HydRON Digital Twin. Monitora e configura i satelliti LEO, MEO, GEO e le stazioni di terra.">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #f8fafc;
+        }
+
+        /* Centered loading screen */
+        .loading-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            transition: opacity 0.5s ease-out;
+            z-index: 10;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border-left-color: #38bdf8;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header class="sr-only" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">
+        <h1>HydRON Constellation Digital Twin</h1>
+    </header>
+
+    <div id="loading" class="loading-screen">
+        <div class="spinner"></div>
+        <h2>Caricamento simulatore in corso...</h2>
+        <p>Inizializzazione WebAssembly e motore grafico WebGL</p>
+    </div>
+
+    <!-- Il canvas principale renderizzato da egui/eframe -->
+    <canvas id="the_canvas_id"></canvas>
+
+    <script>
+        // Nascondi la schermata di caricamento una volta che l'applicazione egui parte
+        // ponytail: semplice trucco per rimuovere il loader all'avvio del rendering
+        const observer = new MutationObserver(() => {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.style.opacity = 0;
+                setTimeout(() => loading.remove(), 500);
+            }
+            observer.disconnect();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    </script>
+</body>
+</html>
