@@ -2880,6 +2880,34 @@ impl eframe::App for HydronGuiApp {
                 stations_screen.push((gs.id.clone(), gs_pos_px, gs_eci, gs.k_value, rot_z));
             }
 
+            // Laser links must vanish where they pass behind the planet: sample
+            // the 3D chord and keep only the sub-segments whose sampled points
+            // are in front of (or beside) the Earth disc.
+            let lerp3 = |a: [f64; 3], b: [f64; 3], t: f64| -> [f64; 3] {
+                [
+                    a[0] + (b[0] - a[0]) * t,
+                    a[1] + (b[1] - a[1]) * t,
+                    a[2] + (b[2] - a[2]) * t,
+                ]
+            };
+            let visible_link_segments = |a: [f64; 3], b: [f64; 3]| -> Vec<[egui::Pos2; 2]> {
+                let steps = 24;
+                let mut segments = Vec::new();
+                let mut prev: Option<(egui::Pos2, bool)> = None;
+                for k in 0..=steps {
+                    let p = lerp3(a, b, k as f64 / steps as f64);
+                    let (px, rot_z) = project_3d(p);
+                    let hidden = rot_z < 0.0 && px.distance(center) < earth_radius_px;
+                    if let Some((prev_px, prev_hidden)) = prev {
+                        if !prev_hidden && !hidden {
+                            segments.push([prev_px, px]);
+                        }
+                    }
+                    prev = Some((px, hidden));
+                }
+                segments
+            };
+
             // Draw active links between Satellites (ISL) using pre-calculated active_isls
             for &(i, j, capacity) in &active_isls {
                 if i >= all_sats.len() || j >= all_sats.len() {
@@ -2891,7 +2919,7 @@ impl eframe::App for HydronGuiApp {
                 let pos1 = satellites_screen.iter().find(|(id, _, _, _, _, _, _)| id == id1);
                 let pos2 = satellites_screen.iter().find(|(id, _, _, _, _, _, _)| id == id2);
 
-                if let (Some((_, _, pos1_px, _, rot_z1, _, _)), Some((_, _, pos2_px, _, rot_z2, _, _))) = (pos1, pos2) {
+                if let (Some((_, _, _, r1, _, _, _)), Some((_, _, _, r2, _, _, _))) = (pos1, pos2) {
                     let color = if capacity > 5.0 {
                         STATUS_GOOD
                     } else if capacity > 1.0 {
@@ -2900,47 +2928,32 @@ impl eframe::App for HydronGuiApp {
                         STATUS_BAD
                     };
 
-                    let dist1 = pos1_px.distance(center);
-                    let dist2 = pos2_px.distance(center);
-                    let occluded1 = *rot_z1 < 0.0 && dist1 < earth_radius_px;
-                    let occluded2 = *rot_z2 < 0.0 && dist2 < earth_radius_px;
-
-                    let link_stroke = if occluded1 || occluded2 {
-                        egui::Stroke::new(1.0, color.linear_multiply(0.12))
-                    } else {
-                        egui::Stroke::new(1.0, color.linear_multiply(0.4))
-                    };
+                    let link_stroke = egui::Stroke::new(1.0, color.linear_multiply(0.4));
 
                     // Critical links (< 1 Gbps) are dashed: ISL lines carry no
                     // Gbps label, so line style is the non-color capacity cue.
-                    if capacity > 1.0 {
-                        painter.line_segment([*pos1_px, *pos2_px], link_stroke);
-                    } else {
-                        painter.extend(egui::Shape::dashed_line(
-                            &[*pos1_px, *pos2_px],
-                            link_stroke,
-                            6.0,
-                            4.0,
-                        ));
+                    for seg in visible_link_segments(*r1, *r2) {
+                        if capacity > 1.0 {
+                            painter.line_segment(seg, link_stroke);
+                        } else {
+                            painter.extend(egui::Shape::dashed_line(&seg, link_stroke, 6.0, 4.0));
+                        }
                     }
 
-                    // Animated signals traveling along active ISL links
+                    // Animated signal traveling along the link, hidden while
+                    // it passes behind the planet
                     let pulse_t = (self.current_time * 2.0) % 1.0;
-                    let px = pos1_px.x + (pos2_px.x - pos1_px.x) * (pulse_t as f32);
-                    let py = pos1_px.y + (pos2_px.y - pos1_px.y) * (pulse_t as f32);
-                    
-                    let pulse_alpha = if occluded1 || occluded2 { 40 } else { 255 };
-                    painter.circle_filled(
-                        egui::pos2(px, py),
-                        2.0,
-                        color.linear_multiply(pulse_alpha as f32 / 255.0)
-                    );
+                    let p = lerp3(*r1, *r2, pulse_t);
+                    let (ppx, prot) = project_3d(p);
+                    if !(prot < 0.0 && ppx.distance(center) < earth_radius_px) {
+                        painter.circle_filled(ppx, 2.0, color);
+                    }
                 }
             }
 
             // Draw active laser links between Satellites and their best Ground Station (SGL)
             if self.show_sgl {
-                for (_sat_id, _type, sat_pos_px, sat_r, sat_rot_z, _, _) in &satellites_screen {
+                for (_sat_id, _type, _, sat_r, _, _, _) in &satellites_screen {
                     if self.prioritize_relay && _type == &OrbitType::LEO {
                         continue;
                     }
@@ -2952,15 +2965,14 @@ impl eframe::App for HydronGuiApp {
 
                     let mut best_gs: Option<String> = None;
                     let mut max_capacity = 0.0;
-                    let mut best_gs_pos_px = egui::pos2(0.0, 0.0);
-                    let mut best_gs_rot_z = 0.0;
+                    let mut best_gs_r = [0.0f64; 3];
                     let sat_ref_dist = match _type {
                         OrbitType::LEO => self.config.ref_dist_sgl_km,
                         OrbitType::MEO => self.config.meo_alt_km,
                         OrbitType::GEO => self.config.geo_alt_km,
                     };
 
-                    for (gs_id, gs_pos_px, gs_r, gs_k, gs_rot_z) in &stations_screen {
+                    for (gs_id, _, gs_r, gs_k, _) in &stations_screen {
                         let capacity = compute_link_capacity(
                             *sat_r, *gs_r, true, *gs_k,
                             sat_ref_dist, sat_max_speed, &self.config.env
@@ -2969,8 +2981,7 @@ impl eframe::App for HydronGuiApp {
                         if capacity > max_capacity {
                             max_capacity = capacity;
                             best_gs = Some(gs_id.clone());
-                            best_gs_pos_px = *gs_pos_px;
-                            best_gs_rot_z = *gs_rot_z;
+                            best_gs_r = *gs_r;
                         }
                     }
 
@@ -2983,59 +2994,49 @@ impl eframe::App for HydronGuiApp {
                             BEAM_BAD
                         };
 
-                        let sat_dist = sat_pos_px.distance(center);
-                        let sat_occluded = *sat_rot_z < 0.0 && sat_dist < earth_radius_px;
-                        let gs_occluded = best_gs_rot_z <= 0.0;
-                        
-                        let base_alpha = if sat_occluded || gs_occluded { 15 } else { 255 };
-                        let glow1_alpha = if sat_occluded || gs_occluded { 5 } else { 25 };
-                        let glow2_alpha = if sat_occluded || gs_occluded { 10 } else { 60 };
+                        let base_color = egui::Color32::from_rgb(beam_r, beam_g, beam_b);
 
-                        let base_color = egui::Color32::from_rgba_unmultiplied(beam_r, beam_g, beam_b, base_alpha);
-
-                        // Outer glow
-                        painter.line_segment(
-                            [*sat_pos_px, best_gs_pos_px],
-                            egui::Stroke::new(5.0, egui::Color32::from_rgba_unmultiplied(beam_r, beam_g, beam_b, glow1_alpha))
-                        );
-                        // Mid glow
-                        painter.line_segment(
-                            [*sat_pos_px, best_gs_pos_px],
-                            egui::Stroke::new(2.5, egui::Color32::from_rgba_unmultiplied(beam_r, beam_g, beam_b, glow2_alpha))
-                        );
-                        // Core laser line
-                        painter.line_segment(
-                            [*sat_pos_px, best_gs_pos_px],
-                            egui::Stroke::new(1.0, base_color)
-                        );
-
-                        // Animated signals traveling along active SGL links
-                        let pulse_t = (self.current_time * 2.5) % 1.0;
-                        for p_idx in 0..2 {
-                            let progress = (pulse_t as f32 + p_idx as f32 * 0.5) % 1.0;
-                            let px = sat_pos_px.x + (best_gs_pos_px.x - sat_pos_px.x) * progress;
-                            let py = sat_pos_px.y + (best_gs_pos_px.y - sat_pos_px.y) * progress;
-                            
-                            painter.circle_filled(
-                                egui::pos2(px, py),
-                                2.5,
-                                egui::Color32::from_rgba_unmultiplied(beam_r, beam_g, beam_b, base_alpha)
+                        // Only the portions of the beam in front of the planet
+                        // are drawn; anything behind the Earth disc is skipped.
+                        for seg in visible_link_segments(*sat_r, best_gs_r) {
+                            // Outer glow
+                            painter.line_segment(
+                                seg,
+                                egui::Stroke::new(5.0, egui::Color32::from_rgba_unmultiplied(beam_r, beam_g, beam_b, 25))
                             );
+                            // Mid glow
+                            painter.line_segment(
+                                seg,
+                                egui::Stroke::new(2.5, egui::Color32::from_rgba_unmultiplied(beam_r, beam_g, beam_b, 60))
+                            );
+                            // Core laser line
+                            painter.line_segment(seg, egui::Stroke::new(1.0, base_color));
                         }
 
-                        // Speed label at midpoint
-                        let mid = egui::pos2(
-                            (sat_pos_px.x + best_gs_pos_px.x) / 2.0,
-                            (sat_pos_px.y + best_gs_pos_px.y) / 2.0,
-                        );
-                        let label = format!("{:.1} Gbps", max_capacity);
-                        painter.text(
-                            egui::pos2(mid.x + 5.0, mid.y - 6.0),
-                            egui::Align2::LEFT_BOTTOM,
-                            &label,
-                            egui::FontId::proportional(9.0),
-                            base_color,
-                        );
+                        // Animated signals traveling along active SGL links,
+                        // hidden while they pass behind the planet
+                        let pulse_t = (self.current_time * 2.5) % 1.0;
+                        for p_idx in 0..2 {
+                            let progress = (pulse_t + p_idx as f64 * 0.5) % 1.0;
+                            let p = lerp3(*sat_r, best_gs_r, progress);
+                            let (ppx, prot) = project_3d(p);
+                            if !(prot < 0.0 && ppx.distance(center) < earth_radius_px) {
+                                painter.circle_filled(ppx, 2.5, base_color);
+                            }
+                        }
+
+                        // Speed label at the link midpoint, only when visible
+                        let (mid_px, mid_rot) = project_3d(lerp3(*sat_r, best_gs_r, 0.5));
+                        if !(mid_rot < 0.0 && mid_px.distance(center) < earth_radius_px) {
+                            let label = format!("{:.1} Gbps", max_capacity);
+                            painter.text(
+                                egui::pos2(mid_px.x + 5.0, mid_px.y - 6.0),
+                                egui::Align2::LEFT_BOTTOM,
+                                &label,
+                                egui::FontId::proportional(9.0),
+                                base_color,
+                            );
+                        }
                     }
                 }
             }
