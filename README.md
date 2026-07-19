@@ -12,7 +12,7 @@ Developed in Rust using the `egui` immediate-mode GUI framework, this project im
 
 ### 1. Tabbed Ribbon Toolbar & Interactive HUDs
 * **Tabbed Ribbon Interface**: Reorganizes all controls into a top horizontal ribbon toolbar with tabs: *Simulation*, *Constellation*, *Network & Bitrate*, *ADCS & Sensors*, and *Weather & Stations*. This clean structure maximizes the screen space for 3D visualizations.
-* **Transparent HUD Floating Windows**: Draggable, resizable, and toggleable overlay windows displaying live telemetry, ground station capacities/connections, all-satellite and ground station bitrates, and system console logs.
+* **Transparent HUD Floating Windows**: Draggable, resizable, and toggleable overlay windows displaying live telemetry, ground station capacities/connections, all-satellite and ground station bitrates, and system console logs. A **🔄 Reset Layout** button (Simulation tab → HUD WINDOWS) reopens every HUD window and returns it to its default position.
 * **Textured 3D Globe**: Renders a sphere representing Earth using `earth.jpg` coordinates, projected dynamically based on Greenwich Sidereal Time (GST) to align with inertial coordinates (ECI to ECEF).
 * **Multi-Layer Constellation Rendering**: Visualizes circular orbits and positions for LEO, MEO, and GEO segments with configurable visual filters.
 * **Camera Controls**: Zoom with the mouse wheel; rotate the globe by clicking and dragging on empty space.
@@ -20,7 +20,7 @@ Developed in Rust using the `egui` immediate-mode GUI framework, this project im
 
 ### 2. Network Link Capacity & Routing Simulation
 * **Ground-to-Satellite Links (SGL)**: Simulates atmospheric attenuation on laser links between satellites and ground stations using an exponential atmospheric model and slant-path angles.
-* **Inter-Satellite Links (ISL)**: Simulates laser links between adjacent satellites.
+* **Inter-Satellite Links (ISL)**: Simulates laser links between adjacent satellites. In the 3D view, link status uses a colorblind-safe palette (Okabe-Ito) and critically degraded links (< 1 Gbps) are drawn **dashed** so capacity is readable independently of color.
 * **Laser Link Routing Rule**: Enforces that the only active laser links permitted are those pointing directly to the ground (SGL) or those connecting a satellite to a ground-connected satellite relay (meaning at least one of the endpoints in an ISL must have an active SGL connection). Additionally, any GEO satellite involved in an ISL link must itself have a direct active connection to a ground station (SGL).
 * **Dynamic Relay Bottleneck & Handoff**: The capacity of an ISL link is capped by the active SGL ground connection capacity of its relay satellite. If the relay's ground connection speed degrades (e.g., due to atmospheric weather degradation at its ground station), the bottleneck triggers a dynamic handoff, allowing satellites to switch to a faster ground-connected relay.
 * **LEO Satellite Laser Terminal Budget**: LEO satellites are restricted to at most 1 active laser connection at any given time (either a single SGL link to ground OR a single ISL link to another satellite).
@@ -29,7 +29,7 @@ Developed in Rust using the `egui` immediate-mode GUI framework, this project im
 * **Real-Time Telemetry HUD Windows**:
   * **Satellite Telemetry HUD**: Draggable window displaying ECI orbit positions, attitude quaternions, angular velocities, physical properties, and live link geometry (azimuth, elevation, distance) for active connections.
   * **Ground Stations HUD**: Floating window showing real-time throughput, nominal capacity (supporting unlimited), and active links including the azimuth, elevation, and distance to connected satellites.
-  * **Bitrates HUD** (formerly LEO Bitrate Channels HUD): Floating window displaying status and live speed values for all LEO/MEO/GEO satellites and Ground Stations (color-coded by throughput).
+  * **Bitrates HUD** (formerly LEO Bitrate Channels HUD): Floating window displaying status and live speed values for all LEO/MEO/GEO satellites and Ground Stations (color-coded by throughput with a colorblind-safe palette; a filled/empty ⚫/⚪ marker distinguishes active from idle links regardless of color).
   * **System Console Logs HUD**: Floating system logs showing routing notifications.
   * **Ground Station Aggregate Throughput**: Live graphs showing station-by-station and total network aggregate data rates.
 
@@ -37,6 +37,7 @@ Developed in Rust using the `egui` immediate-mode GUI framework, this project im
 * **Play / Pause**: Toggle real-time propagation.
 * **Time Warp Slider**: Accelerate or decelerate simulation time dynamically (from -50x to +50x).
 * **System Reset**: Restore the simulation and constellations to initial values specified in `config.toml`.
+* **🔒 Fixed Ideal Orbits ("Orbite Fisse")**: Toggle that locks the orbital geometry: satellites advance at a constant angular rate on their current orbit plane, immune to external perturbations (J2, atmospheric drag, SRP). Useful to keep the constellation formation perfectly stable during long accelerated runs.
 
 ### 4. Noise & Disturbance Injection (ADCS)
 * **Active Attitude Kinematics**: Simulates reaction wheels and magnetorquers stabilizing the satellites.
@@ -128,27 +129,31 @@ The application loads its default parameters from a `config.toml` file in the ro
 
 ## 🎮 Interactive Controls Guide
 
-### Left Panel (Configuration & Limits)
-* **⚙ Visual Filters**: Checkboxes to toggle LEO ISL, MEO ISL, GEO ISL, or Ground Links (SGL) on/off. Includes a logarithmic map zoom slider.
-* **📁 CONFIGURATION**: Allows loading/saving custom TOML configurations. On Desktop, it uses native file dialog pickers. On Web, drag & drop a TOML file anywhere on the browser window to import it, and click "Export" to download the current configuration directly to your downloads folder.
-* **🛰 LEO Routing Priority**: Toggle between Ground First (SGL) and Relay Only (ISL) to prioritize routing satellite data through MEO/GEO relays instead of direct SGL paths.
-* **📶 Bitrate Massimo Satelliti**: Dynamically adjust the peak bitrate capacity (Gbps) for LEO, MEO, and GEO satellites. Changes take effect instantly across all simulation calculations and the CSV exporter.
-* **📡 Modifica Costellazione**: Change constellation sizes, altitudes, and inclinations on the fly.
-* **🏠 Stazioni di Terra**: Add new ground stations or manually override local weather states (e.g., Clear Sky, Light Rain, Heavy Rain, Storm) to observe SGL link degradation.
+All controls live in the tabbed ribbon toolbar at the top of the window; telemetry and logs live in the floating HUD windows.
 
-### Central Panel (3D Map & Plot)
-* **3D Visualizer**:
-  * Drag empty space to rotate the Earth.
-  * Use mouse scroll to zoom in/out.
-  * **Drag Satellites**: Click directly on a satellite and drag it to rotate *only* the selected satellite along its orbit plane.
-* **📊 Station Throughput Plot**: Live graph of ground station and total network aggregate data rates.
+### Top Ribbon Toolbar
+* **Simulation tab**:
+  * *CONTROL*: ▶ Play / ⏸ Pause, ⏭ single Step, ↺ Reset, and the **🔒 Orbite Fisse** toggle (ideal unperturbed orbits, see *Simulation & Time Control* above).
+  * *TIME WARP*: accelerate or decelerate simulation time (-50x to +50x) and read the current epoch.
+  * *REPORTS*: run the full 24-hour simulation and export the CSV report.
+  * *📂 CONFIGURATION*: load/save custom TOML configurations. On Desktop it uses native file dialog pickers; on Web, drag & drop a TOML file anywhere on the browser window to import it, and click "Export" to download the current configuration.
+  * *HUD WINDOWS*: toggle each floating HUD window individually; **🔄 Reset Layout** reopens them all at their default positions.
+* **Constellation tab**: change LEO/MEO/GEO segment sizes, altitudes, and inclinations on the fly; add or remove custom satellites and entire custom constellations.
+* **Network & Bitrate tab**: map visual filters (LEO/MEO/GEO ISL, SGL), LEO routing priority (Ground First vs Relay Only), peak bitrate capacity (Gbps) per orbit class — applied instantly to all simulation calculations and the CSV exporter — and the logarithmic map zoom.
+* **ADCS & Sensors tab**: edit physical satellite properties (mass, drag and reflectivity coefficients), inject 3-axis disturbance torques to test stabilization, and configure Gyro/Magnetometer/Sun Sensor/Star Tracker noise levels.
+* **Weather & Stations tab**: manually override local weather states (e.g., Clear Sky, Light Rain, Heavy Rain, Storm) to observe SGL link degradation; add or edit ground stations.
 
-### Right Panel (Telemetry & Console)
-* **📶 Bitrates**: Monitor live throughput for all LEO/MEO/GEO satellites and Ground Stations (color-coded by active throughput). Click a satellite's name in the list to select it.
-* **Satellite Telemetry**: Read exact ECI position/velocity coordinates, attitude quaternions, ADCS actuator states, and detailed link geometry (azimuth, elevation, distance) for active connections.
-* **Iniettore Disturbi ADCS**: Inject 3D torques to test stabilization.
-* **Rumore Sensori**: Slide values to increase sensor noise, introducing jitter to the stabilization algorithm.
-* **System Logs**: Live event feed tracking connections, disconnections, and export triggers.
+### Central 3D View & Throughput Chart
+* Drag empty space to rotate the Earth; use mouse scroll to zoom in/out.
+* **Drag Satellites**: click directly on a satellite and drag it to rotate *only* that satellite along its orbit plane.
+* The bottom chart shows live per-station and total network aggregate data rates; drag its top edge to resize it.
+
+### Floating HUD Windows
+All windows are draggable, resizable, and closable:
+* **📊 Telemetria Satellite**: exact ECI position/velocity coordinates, attitude quaternions, ADCS actuator states, and detailed link geometry (azimuth, elevation, distance) for the selected satellite's active connections.
+* **📡 Stazioni di Terra**: per-station weather state, real-time throughput, nominal capacity, and connected satellites with link geometry.
+* **📶 Bitrates**: live throughput for all LEO/MEO/GEO satellites and Ground Stations, with colorblind-safe status colors and ⚫/⚪ active/idle markers. Click a satellite's name in the list to select it.
+* **💻 Console di Sistema**: live event feed tracking connections, disconnections, weather transitions, and export triggers.
 
 ---
 
