@@ -91,7 +91,7 @@ Where:
    ```
 2. **Build and Run**:
    ```bash
-   cargo run --release
+   cargo run
    ```
    *Make sure `earth.jpg` and `config.toml` (optional) are in the working directory.*
 
@@ -109,7 +109,7 @@ Where:
    Navigate to `http://localhost:8080` in your web browser.
 4. **Build release static assets**:
    ```bash
-   trunk build --release
+   trunk build
    ```
 
    The compiled static website (HTML, JS, WASM) will be generated inside the `dist/` directory, ready to be deployed to GitHub Pages, Vercel, Netlify, or any static server.

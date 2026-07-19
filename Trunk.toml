@@ -1,0 +1,5 @@
+# Build in release by default: the debug wasm profile is ~3x larger even after
+# wasm-bindgen (and far too slow for the RK4 physics loop to be usable), so a
+# plain `trunk build` / `trunk serve` should never silently produce it.
+[build]
+release = true
