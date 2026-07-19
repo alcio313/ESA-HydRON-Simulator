@@ -79,14 +79,14 @@ Where:
 ### Prerequisites
 * Rust compiler (MSRV 1.92+, required by egui 0.35)
 * Cargo package manager
-* **For Web version**: [Trunk](https://trunkrs.dev/) installed (`cargo install trunk`) and the WebAssembly target (`rustup target add wasm32-unknown-unknown`)
+* **For Web version**: [Trunk](https://trunkrs.dev/) installed and the WebAssembly target
 
 ### Building and Running
 
 #### 🖥️ Desktop (Native Application)
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/alcio313/hydronTwin.git
+   git clone https://github.com/alcio313/ESA-HydRON-Simulator.git
    cd hydronTwin
    ```
 2. **Build and Run**:
