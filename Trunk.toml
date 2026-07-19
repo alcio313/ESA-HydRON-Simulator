@@ -3,3 +3,4 @@
 # plain `trunk build` / `trunk serve` should never silently produce it.
 [build]
 release = true
+public_url = "/ESA-HydRON-Simulator/"
