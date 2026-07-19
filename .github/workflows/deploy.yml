@@ -33,7 +33,7 @@ jobs:
 
       - name: Build with Trunk
         # Sostituisci "nome-repo" con il nome esatto della tua repository su GitHub
-        run: trunk build --release --public-url /hydronTwin/ 
+        run: trunk build --release --public-url /ESA-HydRON-Simulator/ 
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
