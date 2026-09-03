@@ -177,8 +177,8 @@ pub fn compute_link_capacity(
             0.0
         };
         
-        let att_db = gs_k * l_slant;
-        10.0_f64.powf(-att_db / 10.0)
+        // Beer-Lambert law: gs_k is an extinction coefficient (1/m), l_slant in m
+        (-gs_k * l_slant).exp()
     } else {
         1.0 // Inter-Satellite Link has no atmospheric attenuation
     };

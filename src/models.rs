@@ -45,7 +45,7 @@ pub struct GroundStation {
 #[derive(Debug, Clone)]
 pub struct AtmosphereModel {
     pub states: Vec<String>,
-    pub k_values: Vec<f64>, // 1/m
+    pub k_values: Vec<f64>, // 1/km (as in config; converted to 1/m when assigned to k_value)
     pub transition_matrix: Vec<Vec<f64>>,
     pub lcg: Lcg,
 }

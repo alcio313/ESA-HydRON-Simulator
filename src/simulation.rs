@@ -50,7 +50,13 @@ pub fn create_satellites_from_config(config: &Config) -> Constellation {
     let inc_meo = config.meo_inc_deg.to_radians();
 
     for i in 0..config.meo_num {
-        let raan = if !config.meo_raans.is_empty() { config.meo_raans[0] } else { 0.0 };
+        // Walker-like distribution: cycle satellites through the configured RAAN planes,
+        // while the global anomaly spacing below also spreads them evenly within each plane.
+        let raan = if !config.meo_raans.is_empty() {
+            config.meo_raans[i % config.meo_raans.len()]
+        } else {
+            0.0
+        };
         let raan_rad = raan.to_radians();
         let u = (i as f64) * 2.0 * std::f64::consts::PI / (config.meo_num as f64);
         let r_plane = [r_meo * u.cos(), r_meo * u.sin(), 0.0];

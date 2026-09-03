@@ -616,12 +616,15 @@ impl HydronGuiApp {
         }
 
         if let (Some(r), Some(v), true) = (target_sat_pos, target_sat_vel, segment_idx < self.constellation.segments.len()) {
-            let r_len = norm(r);
-            let v_len = norm(v);
-            if r_len > 0.0 && v_len > 0.0 {
-                let u_r = scale(r, 1.0 / r_len);
-                let u_v = scale(v, 1.0 / v_len);
+            let h = cross(r, v);
+            let h_len = norm(h);
+            if h_len > 1e-9 {
+                // Orbit normal: rotating (r, v) rigidly about it slides the satellite
+                // along its orbit plane, preserving altitude, speed and the plane itself.
+                let axis = scale(h, 1.0 / h_len);
 
+                // Same projection as project_3d in the paint code: yaw about the polar
+                // Z axis, then pitch mixing y and z into screen_y. Keep in sync!
                 let cos_yaw = (self.map_yaw as f64).cos();
                 let sin_yaw = (self.map_yaw as f64).sin();
                 let cos_pitch = (self.map_pitch as f64).cos();
@@ -631,9 +634,9 @@ impl HydronGuiApp {
                     let x = pos[0];
                     let y = -pos[1];
                     let z = pos[2];
-                    let x1 = x * cos_yaw - z * sin_yaw;
-                    let z1 = x * sin_yaw + z * cos_yaw;
-                    let y2 = y * cos_pitch - z1 * sin_pitch;
+                    let x1 = x * cos_yaw - y * sin_yaw;
+                    let y1 = x * sin_yaw + y * cos_yaw;
+                    let y2 = -z * cos_pitch + y1 * sin_pitch;
                     egui::pos2(
                         center.x + (x1 * scale_factor) as f32,
                         center.y + (y2 * scale_factor) as f32,
@@ -643,10 +646,10 @@ impl HydronGuiApp {
                 let mut best_theta = 0.0;
                 let mut min_dist = f32::MAX;
 
-                let steps = 120;
+                let steps = 360;
                 for step in 0..steps {
                     let theta = (step as f64 * 2.0 * std::f64::consts::PI) / (steps as f64);
-                    let r_sample = add(scale(u_r, r_len * theta.cos()), scale(u_v, r_len * theta.sin()));
+                    let r_sample = rotate_about_axis(r, axis, theta);
                     let screen_pos = project_pos(r_sample);
                     let dist = screen_pos.distance(mouse_pos);
                     if dist < min_dist {
@@ -655,23 +658,12 @@ impl HydronGuiApp {
                     }
                 }
 
-                let cos_t = best_theta.cos();
-                let sin_t = best_theta.sin();
-
                 // Move only the dragged satellite (not the whole segment)
                 'outer: for seg in &mut self.constellation.segments {
                     for sat in &mut seg.satellites {
                         if sat.id != sat_id { continue; }
-                        let r_curr = sat.r;
-                        let v_curr = sat.v;
-                        let r_c_len = norm(r_curr);
-                        let v_c_len = norm(v_curr);
-                        if r_c_len > 0.0 && v_c_len > 0.0 {
-                            let u_rc = scale(r_curr, 1.0 / r_c_len);
-                            let u_vc = scale(v_curr, 1.0 / v_c_len);
-                            sat.r = add(scale(u_rc, r_c_len * cos_t), scale(u_vc, r_c_len * sin_t));
-                            sat.v = add(scale(u_vc, v_c_len * cos_t), scale(u_rc, -v_c_len * sin_t));
-                        }
+                        sat.r = rotate_about_axis(sat.r, axis, best_theta);
+                        sat.v = rotate_about_axis(sat.v, axis, best_theta);
                         break 'outer;
                     }
                 }
